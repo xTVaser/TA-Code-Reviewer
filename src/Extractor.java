@@ -10,7 +10,6 @@ import javafx.scene.control.*;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
-import javafx.scene.text.Text;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import net.lingala.zip4j.core.ZipFile;
@@ -114,7 +113,7 @@ public class Extractor extends Application {
         assignmentName.setText(folderName);
         assignmentLink.setText("https://courses.algomau.ca/moodle/mod/assign/view.php?id="+assignmentInfo[2]);
 
-        refactorExtraction(newFolder);
+        firstPass(newFolder);
     }
 
     /**
@@ -122,11 +121,13 @@ public class Extractor extends Application {
      *  Name_ID_assignsubmission_file_<file name>
      * @param folderName
      */
-    public void refactorExtraction(String folderName) {
+    public void firstPass(String folderName) {
 
         //Unzip and Unrar all the files first, put them into directories with the name and such.
         ArrayList<File> rootFiles = new ArrayList<File>();
         getAllFiles(folderName, rootFiles, false);
+
+        String secondPassDir = "";
 
         for(int i = 0; i < rootFiles.size(); i++) {
 
@@ -140,6 +141,8 @@ public class Extractor extends Application {
 
                 File dir = new File(folderName+"/"+name);
                 dir.mkdir();
+
+                secondPassDir = dir.toString();
 
                 try {
                     log.appendText("Extracting: "+file.getName()+"\n");
@@ -217,6 +220,59 @@ public class Extractor extends Application {
             }
             else {
                 file.delete();
+            }
+        }
+
+        secondPass(folderName, secondPassDir);
+    }
+
+    public void secondPass(String folderName, String newFolderName) {
+
+        File dir = new File(folderName);
+        File[] folderList = dir.listFiles();
+
+        File newDir = new File(newFolderName);
+
+        for(int i = 0; i < folderList.length; i++) {
+
+            if(folderList[i].isDirectory()) {
+
+                ArrayList<File> files = new ArrayList<File>();
+                getAllFiles(folderList[i].getAbsolutePath(), files, true);
+
+                for(int j = 0; j < files.size(); j++) {
+
+                    File file = files.get(j);
+
+                    if(file.getName().matches(".+(.java)$")) {
+
+                        log.appendText("Found Java File: "+file.getName()+"\n");
+
+                        try {
+                            log.appendText("Moving and Renaming to: "+newDir.toPath().resolveSibling(folderList[i].getName()+"_"+file.getName());
+                            System.out.println(dir.toPath().resolveSibling(folderList[i].getName()+"_"+file.getName()));
+                            Files.move(file.toPath(), newDir.toPath().resolveSibling(folderList[i].getName()+"_"+file.getName()), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                        } catch (IOException ex) {
+                            ex.printStackTrace();
+                        }
+                    }
+                    else if(file.getName().matches(".+(.txt)$")) {
+
+                        log.appendText("Found Text File: "+file.getName()+"\n");
+
+                        try {
+                            log.appendText("Moving and Renaming to: "+file.getName()+"\n");
+                            System.out.println(dir.toPath().resolveSibling(folderList[i].getName()+"_"+file.getName().replaceAll(".txt", ".java")));
+                            Files.move(file.toPath(), newDir.toPath().resolveSibling(folderList[i].getName()+"_"+file.getName().replaceAll(".txt", ".java")), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                        } catch (IOException ex) {
+                            ex.printStackTrace();
+                        }
+                    }
+                    else {
+                        file.delete();
+                    }
+                }
+                folderList[i].delete();
             }
         }
     }
