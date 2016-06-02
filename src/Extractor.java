@@ -1,3 +1,7 @@
+import com.github.junrar.Archive;
+import com.github.junrar.exception.RarException;
+import com.github.junrar.impl.FileVolumeManager;
+import com.github.junrar.rarfile.FileHeader;
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
@@ -8,14 +12,17 @@ import javafx.scene.control.Label;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
-import javafx.scene.web.WebEngine;
-import javafx.scene.web.WebView;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import net.lingala.zip4j.core.ZipFile;
 import net.lingala.zip4j.exception.ZipException;
 
 import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.util.ArrayList;
 import java.util.regex.Pattern;
 
 /**
@@ -23,8 +30,6 @@ import java.util.regex.Pattern;
  * TA-Code-Reviewer - COSC
  */
 public class Extractor extends Application {
-
-    String folderPath = "";
 
     Label assignmentPath = new Label();
     Label assignmentName = new Label();
@@ -100,11 +105,119 @@ public class Extractor extends Application {
             e.printStackTrace();
         }
 
-        folderPath = newFolder;
         assignmentPath.setText("Working With: "+selectedFile.getAbsolutePath());
         assignmentName.setText(folderName);
         assignmentLink.setText("https://courses.algomau.ca/moodle/mod/assign/view.php?id="+assignmentInfo[2]);
 
+        refactorExtraction(newFolder);
+    }
+
+    /**
+     * Submissions have the following format:
+     *  Name_ID_assignsubmission_file_<file name>
+     * @param folderName
+     */
+    public void refactorExtraction(String folderName) {
+
+        //Unzip and Unrar all the files first, put them into directories with the name and such.
+        ArrayList<File> rootFiles = new ArrayList<File>();
+        getAllFiles(folderName, rootFiles, false);
+
+        for(int i = 0; i < rootFiles.size(); i++) {
+
+            File file = rootFiles.get(i);
+            System.out.println(file.getName());
+            if(file.getName().matches(".+(.zip)$")) {
+
+                String name = file.getName().split("_")[0];
+
+                File dir = new File(folderName+"/"+name);
+                dir.mkdir();
+
+                try {
+
+                    ZipFile zip = new ZipFile(file);
+                    zip.extractAll(folderName+"/"+name+"/");
+                }
+                catch (ZipException e) {
+
+                    e.printStackTrace();
+                }
+                file.delete();
+            }
+            else if(file.getName().matches(".+(.rar)$")) {
+
+                String name = file.getName().split("_")[0];
+
+                File dir = new File(folderName+"/"+name+"/");
+                dir.mkdir();
+
+                Archive archive = null;
+                try {
+
+                    archive = new Archive(new FileVolumeManager(file));
+                }
+                catch (RarException e) { e.printStackTrace(); }
+                catch (IOException e) { e.printStackTrace(); }
+
+                FileHeader fileHead = archive.nextFileHeader();
+
+                while(fileHead != null) {
+
+                    try {
+
+                        FileOutputStream os = new FileOutputStream(dir.getAbsolutePath()+"/"+fileHead.getFileNameString().trim()+"/");
+                        archive.extractFile(fileHead, os);
+                        os.close();
+                    }
+                    catch (FileNotFoundException e) { e.printStackTrace(); }
+                    catch (RarException e) { e.printStackTrace(); }
+                    catch (IOException e) { e.printStackTrace(); }
+
+                    fileHead = archive.nextFileHeader();
+                }
+
+                file.delete();
+            }
+            else if(file.getName().matches(".+(.java)$")) {
+
+                String[] fileDetails = file.getName().split("_");
+
+                try {
+                    Files.move(file.toPath(), file.toPath().resolveSibling(fileDetails[0]+"_"+fileDetails[fileDetails.length-1]), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                } catch (IOException ex) {
+                    ex.printStackTrace();
+                }
+            }
+            else if(file.getName().matches(".+(.txt)$")) {
+
+                String[] fileDetails = file.getName().split("_");
+
+                try {
+                    System.out.println(fileDetails[fileDetails.length-1]);
+                    Files.move(file.toPath(), file.toPath().resolveSibling(fileDetails[0]+"_"+fileDetails[fileDetails.length-1].replaceAll(".txt", ".java")), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+                } catch (IOException ex) {
+                    ex.printStackTrace();
+                }
+            }
+            else {
+                file.delete();
+            }
+        }
+    }
+
+    public void getAllFiles(String directory, ArrayList<File> files, Boolean searchSubDirs) {
+
+        File dir = new File(directory);
+
+        File[] fileList = dir.listFiles();
+        for(int i = 0; i < fileList.length; i++) {
+
+            if(fileList[i].isFile())
+                files.add(fileList[i]);
+            else if (fileList[i].isDirectory() && searchSubDirs)
+                getAllFiles(fileList[i].getAbsolutePath(), files, searchSubDirs);
+        }
     }
 
     public static void main(String[] args) {
