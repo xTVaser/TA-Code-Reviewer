@@ -8,8 +8,12 @@ import javafx.scene.control.Label;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.scene.web.WebEngine;
+import javafx.scene.web.WebView;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
+import net.lingala.zip4j.core.ZipFile;
+import net.lingala.zip4j.exception.ZipException;
 
 import java.io.File;
 import java.util.regex.Pattern;
@@ -20,15 +24,17 @@ import java.util.regex.Pattern;
  */
 public class Extractor extends Application {
 
+    String folderPath = "";
+
+    Label assignmentPath = new Label();
+    Label assignmentName = new Label();
+    Hyperlink assignmentLink = new Hyperlink();
+
+
     @Override
     public void start(Stage stage) {
 
         Button chooseFile = new Button("Select Zip File...");
-
-        Label path = new Label();
-        Label assignmentName = new Label();
-        Hyperlink assignmentLink = new Hyperlink();
-
 
         FileChooser fileChooser = new FileChooser();
         fileChooser.setTitle("Open Zip File Containing Assignments");
@@ -37,8 +43,13 @@ public class Extractor extends Application {
                 new FileChooser.ExtensionFilter("All Files", "*.*"));
 
 
+        VBox info = new VBox(50);
+        info.setPadding(new Insets(20));
+        info.setAlignment(Pos.CENTER);
+        info.getChildren().addAll(assignmentPath, assignmentName, assignmentLink);
 
         chooseFile.setOnAction( e -> getFileContents(fileChooser, stage));
+        assignmentLink.setOnAction( e -> getHostServices().showDocument(assignmentLink.getText()));
 
 
         HBox controls = new HBox(50);
@@ -48,7 +59,7 @@ public class Extractor extends Application {
 
 
         BorderPane layout = new BorderPane();
-        //layout.setCenter(info);
+        layout.setCenter(info);
         layout.setBottom(controls);
 
         Scene scene = new Scene(layout, 1000, 500);
@@ -79,6 +90,20 @@ public class Extractor extends Application {
             System.out.println("Folder Successfully Created");
         else
             System.out.println("Folder already exists.");
+
+
+        try {
+            ZipFile mainZip = new ZipFile(selectedFile);
+            mainZip.extractAll(newFolder+"/");
+        }
+        catch(ZipException e) {
+            e.printStackTrace();
+        }
+
+        folderPath = newFolder;
+        assignmentPath.setText("Working With: "+selectedFile.getAbsolutePath());
+        assignmentName.setText(folderName);
+        assignmentLink.setText("https://courses.algomau.ca/moodle/mod/assign/view.php?id="+assignmentInfo[2]);
 
     }
 
