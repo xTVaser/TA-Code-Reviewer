@@ -6,12 +6,11 @@ import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
-import javafx.scene.control.Hyperlink;
-import javafx.scene.control.Label;
+import javafx.scene.control.*;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.scene.text.Text;
 import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 import net.lingala.zip4j.core.ZipFile;
@@ -34,7 +33,7 @@ public class Extractor extends Application {
     Label assignmentPath = new Label();
     Label assignmentName = new Label();
     Hyperlink assignmentLink = new Hyperlink();
-
+    TextArea log = new TextArea("Log\n");
 
     @Override
     public void start(Stage stage) {
@@ -48,10 +47,16 @@ public class Extractor extends Application {
                 new FileChooser.ExtensionFilter("All Files", "*.*"));
 
 
+        log.setEditable(false);
+        ScrollPane scrollpane = new ScrollPane();
+        scrollpane.setContent(log);
+        scrollpane.setFitToWidth(true);
+
+
         VBox info = new VBox(50);
         info.setPadding(new Insets(20));
         info.setAlignment(Pos.CENTER);
-        info.getChildren().addAll(assignmentPath, assignmentName, assignmentLink);
+        info.getChildren().addAll(assignmentPath, assignmentName, assignmentLink, scrollpane);
 
         chooseFile.setOnAction( e -> getFileContents(fileChooser, stage));
         assignmentLink.setOnAction( e -> getHostServices().showDocument(assignmentLink.getText()));
@@ -126,8 +131,10 @@ public class Extractor extends Application {
         for(int i = 0; i < rootFiles.size(); i++) {
 
             File file = rootFiles.get(i);
-            System.out.println(file.getName());
+
             if(file.getName().matches(".+(.zip)$")) {
+
+                log.appendText("Found Zip File: "+file.getName()+"\n");
 
                 String name = file.getName().split("_")[0];
 
@@ -135,7 +142,7 @@ public class Extractor extends Application {
                 dir.mkdir();
 
                 try {
-
+                    log.appendText("Extracting: "+file.getName()+"\n");
                     ZipFile zip = new ZipFile(file);
                     zip.extractAll(folderName+"/"+name+"/");
                 }
@@ -143,9 +150,12 @@ public class Extractor extends Application {
 
                     e.printStackTrace();
                 }
+                log.appendText("Deleting: "+file.getName()+"\n");
                 file.delete();
             }
             else if(file.getName().matches(".+(.rar)$")) {
+
+                log.appendText("Found Rar File: "+file.getName()+"\n");
 
                 String name = file.getName().split("_")[0];
 
@@ -154,7 +164,7 @@ public class Extractor extends Application {
 
                 Archive archive = null;
                 try {
-
+                    log.appendText("Extracting: "+file.getName()+"\n");
                     archive = new Archive(new FileVolumeManager(file));
                 }
                 catch (RarException e) { e.printStackTrace(); }
@@ -176,14 +186,17 @@ public class Extractor extends Application {
 
                     fileHead = archive.nextFileHeader();
                 }
-
+                log.appendText("Deleting: "+file.getName()+"\n");
                 file.delete();
             }
             else if(file.getName().matches(".+(.java)$")) {
 
+                log.appendText("Found Java File: "+file.getName()+"\n");
+
                 String[] fileDetails = file.getName().split("_");
 
                 try {
+                    log.appendText("Renaming: "+file.getName()+"\n");
                     Files.move(file.toPath(), file.toPath().resolveSibling(fileDetails[0]+"_"+fileDetails[fileDetails.length-1]), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
                 } catch (IOException ex) {
                     ex.printStackTrace();
@@ -191,10 +204,12 @@ public class Extractor extends Application {
             }
             else if(file.getName().matches(".+(.txt)$")) {
 
+                log.appendText("Found Text File: "+file.getName()+"\n");
+
                 String[] fileDetails = file.getName().split("_");
 
                 try {
-                    System.out.println(fileDetails[fileDetails.length-1]);
+                    log.appendText("Renaming: "+file.getName()+"\n");
                     Files.move(file.toPath(), file.toPath().resolveSibling(fileDetails[0]+"_"+fileDetails[fileDetails.length-1].replaceAll(".txt", ".java")), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
                 } catch (IOException ex) {
                     ex.printStackTrace();
