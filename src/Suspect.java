@@ -7,7 +7,7 @@ import java.util.ArrayList;
 public class Suspect {
 
     private String name;
-    private ArrayList<ExaminedFile> solutions;
+    private ArrayList<ExaminedFile> solutions = new ArrayList<ExaminedFile>();
 
     public String getName() {
         return name;
@@ -23,5 +23,10 @@ public class Suspect {
 
     public void setSolutions(ArrayList<ExaminedFile> solutions) {
         this.solutions = solutions;
+    }
+
+    public String toString() {
+
+        return name;
     }
 }

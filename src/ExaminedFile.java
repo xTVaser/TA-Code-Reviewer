@@ -4,6 +4,8 @@
  */
 public class ExaminedFile {
 
+    private String fileName;
+
     private String[][] originalFile;
     private String[][] matchedFile;
 
@@ -55,5 +57,18 @@ public class ExaminedFile {
 
     public void setNumberOfLines(int numberOfLines) {
         this.numberOfLines = numberOfLines;
+    }
+
+    public String getFileName() {
+        return fileName;
+    }
+
+    public void setFileName(String fileName) {
+        this.fileName = fileName;
+    }
+
+    public String toString() {
+
+        return fileName+" "+originalFile[0][0]+"..."+originalFile[originalFile.length-1][0];
     }
 }
