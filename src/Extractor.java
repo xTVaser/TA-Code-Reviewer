@@ -249,7 +249,7 @@ public class Extractor extends Application {
                         log.appendText("Found Java File: "+file.getName()+"\n");
 
                         try {
-                            log.appendText("Moving and Renaming to: "+newDir.toPath().resolveSibling(folderList[i].getName()+"_"+file.getName());
+                            log.appendText("Moving and Renaming to: "+newDir.toPath().resolveSibling(folderList[i].getName()+"_"+file.getName()));
                             System.out.println(dir.toPath().resolveSibling(folderList[i].getName()+"_"+file.getName()));
                             Files.move(file.toPath(), newDir.toPath().resolveSibling(folderList[i].getName()+"_"+file.getName()), java.nio.file.StandardCopyOption.REPLACE_EXISTING);
                         } catch (IOException ex) {
@@ -295,6 +295,4 @@ public class Extractor extends Application {
 
         launch(args);
     }
-
-
 }
