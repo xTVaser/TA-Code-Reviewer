@@ -9,10 +9,13 @@ public class ExaminedFile {
     private String[][] originalFile;
     private String[][] matchedFile;
 
-    private int matchScore;
-    private int numberOfMatches;
+    private int matchScore = 0;
+    private int numVarMatches = 0;
+    private int numComMatches = 0;
+    private int numLineMatches = 0;
 
-    private int numberOfLines;
+    private int numberOfLines = 0;
+    private int numberOfUselessLines = 0;
 
     public ExaminedFile() {
 
@@ -25,6 +28,14 @@ public class ExaminedFile {
 
     public void setOriginalFile(String[][] originalFile) {
         this.originalFile = originalFile;
+    }
+
+    public int getNumberOfUselessLines() {
+        return numberOfUselessLines;
+    }
+
+    public void setNumberOfUselessLines(int numberOfUselessLines) {
+        this.numberOfUselessLines = numberOfUselessLines;
     }
 
     public String[][] getMatchedFile() {
@@ -43,12 +54,28 @@ public class ExaminedFile {
         this.matchScore = matchScore;
     }
 
-    public int getNumberOfMatches() {
-        return numberOfMatches;
+    public int getNumVarMatches() {
+        return numVarMatches;
     }
 
-    public void setNumberOfMatches(int numberOfMatches) {
-        this.numberOfMatches = numberOfMatches;
+    public void setNumVarMatches(int numVarMatches) {
+        this.numVarMatches = numVarMatches;
+    }
+
+    public int getNumComMatches() {
+        return numComMatches;
+    }
+
+    public void setNumComMatches(int numComMatches) {
+        this.numComMatches = numComMatches;
+    }
+
+    public int getNumLineMatches() {
+        return numLineMatches;
+    }
+
+    public void setNumLineMatches(int numLineMatches) {
+        this.numLineMatches = numLineMatches;
     }
 
     public int getNumberOfLines() {
@@ -69,6 +96,6 @@ public class ExaminedFile {
 
     public String toString() {
 
-        return fileName+" "+originalFile[0][0]+"..."+originalFile[originalFile.length-1][0];
+        return fileName;
     }
 }
