@@ -5,11 +5,13 @@
 public class ExaminedFile {
 
     private String fileName;
+    private String matchedFileName;
 
-    private String[][] originalFile;
+    private String[][] storedFile;
     private String[][] matchedFile;
 
-    private int matchScore = 0;
+    private double matchScore = 0;
+
     private int numVarMatches = 0;
     private int numComMatches = 0;
     private int numLineMatches = 0;
@@ -19,15 +21,35 @@ public class ExaminedFile {
 
     public ExaminedFile() {
 
-
     }
 
-    public String[][] getOriginalFile() {
-        return originalFile;
+    public String getMatchedFileName() {
+        return matchedFileName;
     }
 
-    public void setOriginalFile(String[][] originalFile) {
-        this.originalFile = originalFile;
+    public void setMatchedFileName(String matchedFileName) {
+        this.matchedFileName = matchedFileName;
+    }
+
+    public String[][] copyStoredFile() {
+
+        String[][] copy = new String[storedFile.length][2];
+
+        for(int i = 0 ; i < copy.length; i++) {
+
+            copy[i][0] = storedFile[i][0];
+            copy[i][1] = "false";
+        }
+
+        return copy;
+    }
+
+    public String[][] getStoredFile() {
+        return storedFile;
+    }
+
+    public void setStoredFile(String[][] originalFile) {
+        this.storedFile = originalFile;
     }
 
     public int getNumberOfUselessLines() {
@@ -46,11 +68,11 @@ public class ExaminedFile {
         this.matchedFile = matchedFile;
     }
 
-    public int getMatchScore() {
+    public double getMatchScore() {
         return matchScore;
     }
 
-    public void setMatchScore(int matchScore) {
+    public void setMatchScore(double matchScore) {
         this.matchScore = matchScore;
     }
 

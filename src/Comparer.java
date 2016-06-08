@@ -99,88 +99,109 @@ public class Comparer extends Application {
 
         System.out.println("Comparing-"+sFile+" to "+mFile);
 
-        String[][] sString = sFile.getOriginalFile();
-        String[][] mString = mFile.getOriginalFile();
+        //Copy both files, and reset their color information.
+        String[][] sString = sFile.copyStoredFile();
+        String[][] mString = mFile.copyStoredFile();
+
+        int[] matchArray = {0,0,0,0};
 
         String line = "";
+        int beginIndex = 0;
 
         for(int i = 0; i < sString.length; i++) {
 
             if (sString[i][0].equals("\n")) {
 
                 //Check to see if it is a waste of time, just a brace or an ending block comment.
-                if (line.matches("[\t ]*[{}][\t ]*|[\t ]*(\\*/)[\t ]*")) {
+                if (line.matches("[\t ]*[{}][\t ]*|[\t ]*(\\*/)[\t ]*") || line.equals("")) {
                     line = "";
-                    sFile.setNumberOfUselessLines(sFile.getNumberOfUselessLines()+1);
+                    matchArray[USELESS_CHECK]++;
                     continue;
                 }
 
                 //Check to see if it is a variable line.
                 else if(line.matches(".+\\s(.+?)(;|=).")) {
 
-                    int varMatches = variableCheck(line, mString);
-                    sFile.setNumVarMatches(sFile.getNumVarMatches()+varMatches);
+                    int matches = lineMatcher(line, mString, VARIABLE_CHECK);
+                    if(matches > 0)
+                        colorLine(sString, beginIndex, i, VARIABLE_CHECK);
+
+                    matchArray[VARIABLE_CHECK] += matches;
                 }
 
                 //Check to see if it is a comment line.
                 else if(line.matches(".*(//|/\\*\\*|/\\*|\\*).*")) {
 
-                    int comMatches = commentCheck(line, mString);
-                    sFile.setNumComMatches(sFile.getNumComMatches()+comMatches);
+                    int matches = lineMatcher(line, mString, COMMENT_CHECK);
+                    if(matches > 0)
+                        colorLine(sString, beginIndex, i, COMMENT_CHECK);
+
+                    matchArray[COMMENT_CHECK] += matches;
                 }
 
                 //Check the normal line
                 else {
 
-                    int lineMatches = lineCheck(line, mString);
-                    sFile.setNumLineMatches(sFile.getNumLineMatches()+lineMatches);
+                    int matches = lineMatcher(line, mString, LINE_CHECK);
+                    if(matches > 0)
+                        colorLine(sString, beginIndex, i, LINE_CHECK);
+
+                    matchArray[LINE_CHECK] += matches;
                 }
 
                 line = "";
+                beginIndex = i+1;
             }
             else {
 
                 line += sString[i][0] + " ";
             }
         }
-    }
 
-    //Simplify these 3 methods below into one if further modifications are never needed
+        double likelyhood = calculateScore(sFile, matchArray);
 
-    private int lineCheck(String line, String[][] file) {
+        if(likelyhood > sFile.getMatchScore()) {
 
-        int lineMatches = 0;
-        String[] words = line.split(" ");
+            sFile.setStoredFile(sString);
+            sFile.setMatchedFile(mString);
+            sFile.setMatchedFileName(mFile.getFileName());
+            sFile.setMatchScore(likelyhood);
 
-        for(int i = 0; i < file.length; i++) {
-
-            if(file[i][0].equals(words[0])) {
-
-                boolean match = true;
-                for(int j = 0; j < words.length; j++) {
-
-                    if(!file[i+j][0].equals(words[j]))
-                        match = false;
-                }
-
-                if(match == true) {
-
-                    for(int j = 0; j < words.length; j++) {
-
-                        file[i+j][1] = "true";
-                    }
-                    lineMatches++;
-                }
-            }
+            sFile.setNumVarMatches(matchArray[VARIABLE_CHECK]);
+            sFile.setNumComMatches(matchArray[COMMENT_CHECK]);
+            sFile.setNumLineMatches(matchArray[LINE_CHECK]);
+            sFile.setNumberOfUselessLines(matchArray[USELESS_CHECK]);
         }
-
-
-        return lineMatches;
     }
 
-    private int commentCheck(String line, String[][] file) {
+    private double calculateScore(ExaminedFile file, int[] matches) {
 
-        int comMatches = 0;
+        double numLines = (double)file.getNumberOfLines()-matches[USELESS_CHECK];
+        double matchedLines =   (double)matches[VARIABLE_CHECK] +
+                                (double)matches[COMMENT_CHECK]*1.25 +
+                                (double)matches[LINE_CHECK];
+
+        return (matchedLines / numLines) * 100.0;
+    }
+
+    private void colorLine(String[][] file, int beginIndex, int endIndex, int type) {
+
+        String[] keywords = {"variable", "comment", "line"};
+
+        for(int i = beginIndex; i < endIndex; i++) {
+
+            file[i][1] = keywords[type];
+        }
+    }
+
+    final int VARIABLE_CHECK = 0;
+    final int COMMENT_CHECK = 1;
+    final int LINE_CHECK = 2;
+    final int USELESS_CHECK = 3;
+
+    private int lineMatcher(String line, String[][] file, int type) {
+
+        int matches = 0;
         String[] words = line.replaceAll("[\t\r]", "").split(" ");
 
         for(int i = 0; i < file.length; i++) {
@@ -198,43 +219,18 @@ public class Comparer extends Application {
 
                     for(int j = 0; j < words.length; j++) {
 
-                        file[i+j][1] = "true";
+                        if(type == VARIABLE_CHECK)
+                            file[i+j][1] = "variable";
+                        else if(type == COMMENT_CHECK)
+                            file[i+j][1] = "comment";
+                        else
+                            file[i+j][1] = "line";
                     }
-                    comMatches++;
+                    matches++;
                 }
             }
         }
-        return comMatches;
-    }
-
-    private int variableCheck(String line, String[][] file) {
-
-        int varMatches = 0;
-        String[] words = line.split(" ");
-
-        for(int i = 0; i < file.length; i++) {
-
-            if(file[i][0].equals(words[0])) {
-
-                boolean match = true;
-                for(int j = 0; j < words.length; j++) {
-
-                    if(!file[i+j][0].equals(words[j]))
-                        match = false;
-                }
-
-                if(match == true) {
-
-                    for(int j = 0; j < words.length; j++) {
-
-                        file[i+j][1] = "true";
-                    }
-                    varMatches++;
-                }
-            }
-        }
-
-        return varMatches;
+        return matches;
     }
 
 
@@ -281,7 +277,7 @@ public class Comparer extends Application {
 
                 newFile.setFileName(currentFile.getName().split("_")[1]);
                 newFile.setNumberOfLines(countLines(allLines));
-                newFile.setOriginalFile(parseFile(allLines));
+                newFile.setStoredFile(parseFile(allLines));
 
                 suspect.getSolutions().add(newFile);
             }
