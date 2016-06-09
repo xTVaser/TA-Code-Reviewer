@@ -1,20 +1,29 @@
+import com.itextpdf.text.*;
+import com.itextpdf.text.pdf.PdfPTable;
+import com.itextpdf.text.pdf.PdfWriter;
+import com.itextpdf.text.pdf.draw.LineSeparator;
 import javafx.application.Application;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
-import javafx.scene.control.Button;
+import javafx.scene.control.*;
 import javafx.scene.layout.BorderPane;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
 import org.codehaus.plexus.util.FileUtils;
+import org.codehaus.plexus.util.StringUtils;
 
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
+import java.util.Optional;
 
 /**
  * Created by Tyler Wilding on 05/06/16.
@@ -24,36 +33,236 @@ public class Comparer extends Application {
 
     private ArrayList<Suspect> suspects = new ArrayList<Suspect>();
 
+    private File directory;
+
     private Button beginCompare = new Button("Begin Comparison");
+    private Button exportPDFButton = new Button("Export PDF");
 
     @Override
     public void start(Stage stage) {
 
-        beginCompare.setDisable(true);
+        beginCompare.setDisable(false);
+        exportPDFButton.setDisable(false);
         Button chooseDir = new Button("Select Assignment Path...");
 
         DirectoryChooser dirChooser = new DirectoryChooser();
             dirChooser.setTitle("Select Folder containing Files to Check");
 
         HBox controls = new HBox(50);
-        controls.setPadding(new Insets(20));
-        controls.setAlignment(Pos.CENTER);
-        controls.getChildren().addAll(chooseDir, beginCompare);
+            controls.setPadding(new Insets(20));
+            controls.setAlignment(Pos.CENTER);
+            controls.getChildren().addAll(chooseDir, beginCompare, exportPDFButton);
 
         BorderPane layout = new BorderPane();
-        layout.setBottom(controls);
+            layout.setBottom(controls);
 
-
-
+        //Event Actions
         chooseDir.setOnAction( e -> gatherSuspectsAndFiles(dirChooser, stage));
         beginCompare.setOnAction( e -> suspectIterator());
-        System.out.println();
+        exportPDFButton.setOnAction( e -> exportPDF(stage));
+
 
 
         Scene scene = new Scene(layout, 1000, 500);
-        stage.setTitle("TA Code Reviewer - Extractor");
-        stage.setScene(scene);
-        stage.show();
+            stage.setTitle("TA Code Reviewer - Comparer");
+            stage.setScene(scene);
+            stage.show();
+    }
+
+    private void exportPDF(Stage stage) {
+
+        Dialog dialog = new Dialog();
+        dialog.setTitle("PDF Detail Entry");
+        dialog.setHeaderText("Enter the following fields and hit the 'Confirm' button");
+        dialog.setResizable(false);
+
+        Label assignmentName = new Label("Assignment Name: ");
+        Label courseCode = new Label("Course Code: ");
+        Label professor = new Label("Professor: ");
+        Label ta = new Label("TA Name: ");
+
+        TextField assignmentNameField = new TextField();
+        TextField courseCodeField = new TextField();
+        TextField professorField = new TextField();
+        TextField taField = new TextField();
+
+        GridPane grid = new GridPane();
+        grid.add(assignmentName, 1, 1);
+        grid.add(assignmentNameField, 1, 2);
+        grid.add(courseCode, 2, 1);
+        grid.add(courseCodeField, 2, 2);
+        grid.add(professor, 3, 1);
+        grid.add(professorField, 3, 2);
+        grid.add(ta, 4, 1);
+        grid.add(taField, 4, 2);
+
+        dialog.getDialogPane().setContent(grid);
+        ButtonType confirm = new ButtonType("Confirm", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().add(confirm);
+
+        ArrayList<String> info = new ArrayList<>();
+
+        Optional<ButtonType> result = dialog.showAndWait();
+        if (result.isPresent()) {
+
+            info.add(assignmentNameField.getText());
+            info.add(courseCodeField.getText());
+            info.add(professorField.getText());
+            info.add(taField.getText());
+        }
+
+        Document pdf = new Document();
+
+        String[] folder = directory.getAbsolutePath().split("/");
+        String destination = "";
+        for(int i = 0; i < folder.length-1; i++)
+            destination += folder[i]+"/";
+
+        try {
+
+            Font titleFont = new Font(Font.FontFamily.HELVETICA, 42.0f, Font.BOLD, BaseColor.BLACK);
+            Font linkFont = new Font(Font.FontFamily.HELVETICA, 14.0f, Font.NORMAL, BaseColor.BLUE);
+            Font paraFontBold = new Font(Font.FontFamily.HELVETICA, 14.0f, Font.BOLD, BaseColor.BLACK);
+            Font paraFont = new Font(Font.FontFamily.HELVETICA, 14.0f, Font.NORMAL, BaseColor.BLACK);
+
+
+            PdfWriter.getInstance(pdf, new FileOutputStream(destination+"pdfResult"));
+            pdf.open();
+
+            Chunk title = new Chunk(info.get(0), titleFont);
+            Chunk code = new Chunk(info.get(1), titleFont);
+            Chunk prof = new Chunk(info.get(2), titleFont);
+            Chunk tainfo = new Chunk(info.get(3), titleFont);
+
+            Paragraph p = new Paragraph(title);
+            p.setAlignment(Element.ALIGN_CENTER);
+            pdf.add(p);
+            pdf.add(new Chunk(new LineSeparator()));
+            p = new Paragraph(code);
+            p.setAlignment(Element.ALIGN_CENTER);
+            pdf.add(p);
+            p = new Paragraph(prof);
+            p.setAlignment(Element.ALIGN_CENTER);
+            pdf.add(p);
+            p = new Paragraph(tainfo);
+            p.setAlignment(Element.ALIGN_CENTER);
+            pdf.add(p);
+            pdf.add(new Chunk(new LineSeparator()));
+            p = new Paragraph(new Chunk(new Date().toString(), titleFont));
+            p.setAlignment(Element.ALIGN_CENTER);
+            pdf.add(p);
+            pdf.newPage();
+
+            //Table of Contents
+            pdf.add(new Paragraph(new Chunk("Table of Contents", paraFontBold)));
+            pdf.add(new Chunk(new LineSeparator()));
+            pdf.add(new Chunk("\n"));
+
+
+            for(int i = 0; i < suspects.size(); i++) {
+
+                Anchor link = new Anchor("  "+suspects.get(i).getName(), linkFont);
+                link.setReference("#"+suspects.get(i).getName());
+
+                pdf.add(link);
+                pdf.add(new Chunk("\n"));
+            }
+
+            pdf.newPage();
+
+            //Each Person
+            for(int i = 0; i < suspects.size(); i++) {
+
+                //Name and Link Target
+                Anchor linkTarget = new Anchor(suspects.get(i).getName(), paraFontBold);
+                linkTarget.setName(suspects.get(i).getName());
+                pdf.add(linkTarget);
+                pdf.add(new Chunk("\n"));
+                pdf.add(new Chunk(new LineSeparator()));
+
+                ArrayList<ExaminedFile> files = suspects.get(i).getSolutions();
+
+                for(int j = 0; j < files.size(); j++) {
+
+                    //Detail Table
+                    PdfPTable table = new PdfPTable(2);
+                    table.addCell("File Name");
+                    table.addCell(files.get(j).getFileName());
+                    table.addCell("Matched File Name");
+                    table.addCell(files.get(j).getMatchedFileName());
+                    table.addCell("Matched File Score");
+                    table.addCell(Double.toString(files.get(j).getMatchScore()));
+                    table.addCell("Total Number of Matches");
+                    table.addCell(Integer.toString(files.get(j).getNumberOfMatches()));
+                    table.addCell("Number of Variable Matches");
+                    table.addCell(Integer.toString(files.get(j).getNumVarMatches()));
+                    table.addCell("Number of Comment Matches");
+                    table.addCell(Integer.toString(files.get(j).getNumComMatches()));
+                    table.addCell("Number of General Line Matches");
+                    table.addCell(Integer.toString(files.get(j).getNumLineMatches()));
+                    table.addCell("Number of Lines");
+                    table.addCell(Integer.toString(files.get(j).getNumberOfLines()));
+                    table.addCell("Number of Disregarded Lines");
+                    table.addCell(Integer.toString(files.get(j).getNumberOfUselessLines()));
+
+                    pdf.add(table);
+                    pdf.add(new Paragraph("Original File - "+ files.get(j).getFileName(), paraFontBold));
+                    pdf.add(new Paragraph(new Chunk(new LineSeparator())));
+
+                    String[][] sFile = files.get(j).getStoredFile();
+                    String[][] mFile = files.get(j).getMatchedFile();
+
+                    printFileContents(pdf, sFile);
+                    pdf.add(new Paragraph("Matched File - "+ files.get(j).getMatchedFileName(), paraFontBold));
+                    pdf.add(new Paragraph(new Chunk(new LineSeparator())));
+                    printFileContents(pdf, mFile);
+
+                    pdf.newPage();
+                }
+
+                pdf.newPage();
+            }
+
+            pdf.close();
+        }
+        catch(Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void printFileContents(Document pdf, String[][] file) throws Exception {
+
+        Paragraph p = new Paragraph();
+        p.setTabSettings(new TabSettings(40f));
+
+        for(int l = 0; l < file.length; l++) {
+
+            for(int w = 0; w < file[l][0].length(); w++) {
+
+                if(file[l][0].charAt(w) == 9) { // 9 is a tab character
+                    p.add(Chunk.TABBING);
+                }
+
+                else
+                    p.add(new Chunk(file[l][0].charAt(w)+"", pickFont(file[l][1])));
+
+            }
+            p.add(new Chunk(" "));
+        }
+
+        pdf.add(p);
+    }
+
+    private Font pickFont(String type) {
+
+        if(type.equals("variable"))
+            return new Font(Font.FontFamily.COURIER, 10.0f, Font.BOLD, BaseColor.ORANGE);
+        else if(type.equals("comment"))
+            return new Font(Font.FontFamily.COURIER, 10.0f, Font.BOLD, BaseColor.RED);
+        else if(type.equals("line"))
+            return new Font(Font.FontFamily.COURIER, 10.0f, Font.BOLD, BaseColor.MAGENTA);
+        else
+            return new Font(Font.FontFamily.COURIER, 10.0f, Font.NORMAL, BaseColor.BLACK);
     }
 
     private void suspectIterator() {
@@ -74,7 +283,7 @@ public class Comparer extends Application {
             }
         }
 
-        System.out.println("Done suspects");
+        exportPDFButton.setDisable(false);
     }
 
     private void fileIterator(ArrayList<ExaminedFile> sFiles, ArrayList<ExaminedFile> mFiles) {
@@ -91,11 +300,6 @@ public class Comparer extends Application {
     }
 
     private void compareAlgorithm(ExaminedFile sFile, ExaminedFile mFile) {
-
-        //We build the line, and then compare to all other built lines.
-        //First analyze the first line, if its a variable, compare the lines with the variable checker method.
-        //If its a comment line, compare with all other single comment lines.
-        //Finally if it is a normal line, we just compare with all other lines simply no pattern matching required.
 
         System.out.println("Comparing-"+sFile+" to "+mFile);
 
@@ -171,6 +375,9 @@ public class Comparer extends Application {
             sFile.setNumComMatches(matchArray[COMMENT_CHECK]);
             sFile.setNumLineMatches(matchArray[LINE_CHECK]);
             sFile.setNumberOfUselessLines(matchArray[USELESS_CHECK]);
+
+            if(sFile.getMatchScore() > 50)
+                sFile.setNumberOfMatches(sFile.getNumberOfMatches()+1);
         }
     }
 
@@ -237,6 +444,7 @@ public class Comparer extends Application {
     private void gatherSuspectsAndFiles(DirectoryChooser dirChooser, Stage stage) {
 
         File selectedFile = dirChooser.showDialog(stage);
+        directory = selectedFile;
 
         File[] allFiles = selectedFile.listFiles();
 

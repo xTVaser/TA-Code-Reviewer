@@ -11,6 +11,7 @@ public class ExaminedFile {
     private String[][] matchedFile;
 
     private double matchScore = 0;
+    private int numberOfMatches = 0;
 
     private int numVarMatches = 0;
     private int numComMatches = 0;
@@ -21,6 +22,14 @@ public class ExaminedFile {
 
     public ExaminedFile() {
 
+    }
+
+    public int getNumberOfMatches() {
+        return numberOfMatches;
+    }
+
+    public void setNumberOfMatches(int numberOfMatches) {
+        this.numberOfMatches = numberOfMatches;
     }
 
     public String getMatchedFileName() {
