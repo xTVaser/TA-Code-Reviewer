@@ -3,8 +3,12 @@ import com.itextpdf.text.pdf.PdfPTable;
 import com.itextpdf.text.pdf.PdfWriter;
 import com.itextpdf.text.pdf.draw.LineSeparator;
 import javafx.application.Application;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.property.StringProperty;
+import javafx.collections.ListChangeListener;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
+import javafx.scene.Node;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.BorderPane;
@@ -13,7 +17,6 @@ import javafx.scene.layout.HBox;
 import javafx.stage.DirectoryChooser;
 import javafx.stage.Stage;
 import org.codehaus.plexus.util.FileUtils;
-import org.codehaus.plexus.util.StringUtils;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -38,11 +41,29 @@ public class Comparer extends Application {
     private Button beginCompare = new Button("Begin Comparison");
     private Button exportPDFButton = new Button("Export PDF");
 
+    private TextArea log = new TextArea("Log\n");
+
+    private ProgressBar pb = new ProgressBar(0);
+    private Label barLabel = new Label("Pending...");
+    private int numFilesChecked = 0;
+    private int numFilesTotal = 0;
+
+    StringProperty textProperty = new SimpleStringProperty("Pending...");
+
     @Override
     public void start(Stage stage) {
 
-        beginCompare.setDisable(false);
-        exportPDFButton.setDisable(false);
+        barLabel.textProperty().bind(textProperty);
+
+        pb.setMinWidth(500);
+
+        ScrollPane scrollpane = new ScrollPane();
+        scrollpane.setContent(log);
+        scrollpane.setFitToWidth(true);
+        scrollpane.setFitToHeight(true);
+
+        beginCompare.setDisable(true);
+        exportPDFButton.setDisable(true);
         Button chooseDir = new Button("Select Assignment Path...");
 
         DirectoryChooser dirChooser = new DirectoryChooser();
@@ -53,15 +74,27 @@ public class Comparer extends Application {
             controls.setAlignment(Pos.CENTER);
             controls.getChildren().addAll(chooseDir, beginCompare, exportPDFButton);
 
+        HBox bar = new HBox(50);
+            bar.setPadding(new Insets(20));
+            bar.setAlignment(Pos.CENTER);
+            bar.getChildren().addAll(barLabel, pb);
+
         BorderPane layout = new BorderPane();
-            layout.setBottom(controls);
+            layout.setTop(controls);
+            layout.setCenter(scrollpane);
+            layout.setBottom(bar);
 
         //Event Actions
         chooseDir.setOnAction( e -> gatherSuspectsAndFiles(dirChooser, stage));
         beginCompare.setOnAction( e -> suspectIterator());
         exportPDFButton.setOnAction( e -> exportPDF(stage));
 
+        layout.getChildren().addListener( ( ListChangeListener.Change<? extends Node> c ) -> {
 
+            scrollpane.layout();
+            scrollpane.setVvalue( 1.0d );
+
+        });
 
         Scene scene = new Scene(layout, 1000, 500);
             stage.setTitle("TA Code Reviewer - Comparer");
@@ -70,6 +103,8 @@ public class Comparer extends Application {
     }
 
     private void exportPDF(Stage stage) {
+
+        log.appendText("Begin Exporting PDF!\n");
 
         Dialog dialog = new Dialog();
         dialog.setTitle("PDF Detail Entry");
@@ -113,10 +148,13 @@ public class Comparer extends Application {
 
         Document pdf = new Document();
 
+        log.appendText("Information Entered, Finding File Location...\n");
         String[] folder = directory.getAbsolutePath().split("/");
         String destination = "";
         for(int i = 0; i < folder.length-1; i++)
             destination += folder[i]+"/";
+
+        log.appendText("File Location found, creating PDF...\n");
 
         try {
 
@@ -134,6 +172,7 @@ public class Comparer extends Application {
             Chunk prof = new Chunk(info.get(2), titleFont);
             Chunk tainfo = new Chunk(info.get(3), titleFont);
 
+            log.appendText("Creating Title Page...\n");
             Paragraph p = new Paragraph(title);
             p.setAlignment(Element.ALIGN_CENTER);
             pdf.add(p);
@@ -153,6 +192,7 @@ public class Comparer extends Application {
             pdf.add(p);
             pdf.newPage();
 
+            log.appendText("Creating Table of Contents...\n");
             //Table of Contents
             pdf.add(new Paragraph(new Chunk("Table of Contents", paraFontBold)));
             pdf.add(new Chunk(new LineSeparator()));
@@ -165,7 +205,7 @@ public class Comparer extends Application {
                 link.setReference("#"+suspects.get(i).getName());
 
                 pdf.add(link);
-                pdf.add(new Chunk("\n"));
+                pdf.add(new Chunk(" "+suspects.get(i).largestScore()+"\n"));
             }
 
             pdf.newPage();
@@ -173,6 +213,7 @@ public class Comparer extends Application {
             //Each Person
             for(int i = 0; i < suspects.size(); i++) {
 
+                log.appendText("Printing all of ("+suspects.get(i).getName()+"'s) details\n");
                 //Name and Link Target
                 Anchor linkTarget = new Anchor(suspects.get(i).getName(), paraFontBold);
                 linkTarget.setName(suspects.get(i).getName());
@@ -215,7 +256,10 @@ public class Comparer extends Application {
                     printFileContents(pdf, sFile);
                     pdf.add(new Paragraph("Matched File - "+ files.get(j).getMatchedFileName(), paraFontBold));
                     pdf.add(new Paragraph(new Chunk(new LineSeparator())));
-                    printFileContents(pdf, mFile);
+                    if(mFile != null)
+                        printFileContents(pdf, mFile);
+                    else
+                        pdf.add(new Chunk("No Matched File"));
 
                     pdf.newPage();
                 }
@@ -224,6 +268,7 @@ public class Comparer extends Application {
             }
 
             pdf.close();
+            log.appendText("PDF Exporting Complete!\n");
         }
         catch(Exception e) {
             e.printStackTrace();
@@ -294,14 +339,32 @@ public class Comparer extends Application {
 
                 //Compare eachfile to each other file, the lowest.
                 compareAlgorithm(sFiles.get(i), mFiles.get(j));
-
+                numFilesChecked++;
+                pb.setProgress((double)numFilesChecked/(double)numFilesTotal);
+                textProperty.set("[ "+numFilesChecked+" out of "+numFilesTotal+"]");
             }
         }
     }
 
+    private void calculateTotalFiles() {
+
+        int total = 0;
+
+        for(int i = 0; i < suspects.size(); i++) {
+
+            for(int j = 0; j < suspects.size(); j++) {
+
+                if(suspects.get(i) != suspects.get(j))
+                    total += suspects.get(j).getSolutions().size()*suspects.get(i).getSolutions().size();
+            }
+        }
+
+        numFilesTotal = total;
+    }
+
     private void compareAlgorithm(ExaminedFile sFile, ExaminedFile mFile) {
 
-        System.out.println("Comparing-"+sFile+" to "+mFile);
+        log.appendText("Comparing-"+sFile+" to "+mFile+"\n");
 
         //Copy both files, and reset their color information.
         String[][] sString = sFile.copyStoredFile();
@@ -312,12 +375,13 @@ public class Comparer extends Application {
         String line = "";
         int beginIndex = 0;
 
+        int counter = 0;
+
         for(int i = 0; i < sString.length; i++) {
 
             if (sString[i][0].equals("\n")) {
-
                 //Check to see if it is a waste of time, just a brace or an ending block comment.
-                if (line.matches("[\t ]*[{}][\t ]*|[\t ]*(\\*/)[\t ]*") || line.equals("")) {
+                if (line.matches("[\t ]*[{}][\t ]*|[\t ]*(\\*/)[\t ]*") || line.equals("") || line.matches("\\s*\t*\\s*")) {
                     line = "";
                     matchArray[USELESS_CHECK]++;
                     continue;
@@ -366,6 +430,8 @@ public class Comparer extends Application {
 
         if(likelyhood > sFile.getMatchScore()) {
 
+            log.appendText("Better Match Found!\n");
+
             sFile.setStoredFile(sString);
             sFile.setMatchedFile(mString);
             sFile.setMatchedFileName(mFile.getFileName());
@@ -394,6 +460,7 @@ public class Comparer extends Application {
     private void colorLine(String[][] file, int beginIndex, int endIndex, int type) {
 
         String[] keywords = {"variable", "comment", "line"};
+        log.appendText("Found Similar "+keywords[type]+"\n");
 
         for(int i = beginIndex; i < endIndex; i++) {
 
@@ -409,17 +476,29 @@ public class Comparer extends Application {
     private int lineMatcher(String line, String[][] file, int type) {
 
         int matches = 0;
+        int counter = 0;
         String[] words = line.replaceAll("[\t\r]", "").split(" ");
 
-        for(int i = 0; i < file.length; i++) {
+        if(words.length == 0)
+            return 0;
 
+        for(int i = 0; i < file.length; i++) {
+            //System.out.println(counter++);
             if(file[i][0].replaceAll("[\t\r]", "").equals(words[0])) {
 
                 boolean match = true;
                 for(int j = 0; j < words.length; j++) {
 
-                    if(!file[i+j][0].replaceAll("[\t\r]", "").equals(words[j]))
+                    if(i+j >= file.length) {
                         match = false;
+                        break;
+                    }
+
+                    if(!file[i+j][0].replaceAll("[\t\r]", "").equals(words[j])) {
+
+                        match = false;
+                        break;
+                    }
                 }
 
                 if(match == true) {
@@ -443,6 +522,7 @@ public class Comparer extends Application {
 
     private void gatherSuspectsAndFiles(DirectoryChooser dirChooser, Stage stage) {
 
+        log.appendText("Gathering All Files into Arrays...\n");
         File selectedFile = dirChooser.showDialog(stage);
         directory = selectedFile;
 
@@ -496,6 +576,8 @@ public class Comparer extends Application {
             files.remove(0);
         }
 
+        log.appendText("Ready...\n");
+        calculateTotalFiles();
         beginCompare.setDisable(false);
     }
 

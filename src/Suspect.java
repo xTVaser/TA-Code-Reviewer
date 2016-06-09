@@ -9,6 +9,7 @@ public class Suspect {
     private String name;
     private ArrayList<ExaminedFile> solutions = new ArrayList<ExaminedFile>();
 
+
     public String getName() {
         return name;
     }
@@ -28,5 +29,18 @@ public class Suspect {
     public String toString() {
 
         return name;
+    }
+
+    public double largestScore() {
+
+        double largest = Double.MIN_VALUE;
+
+        for(int i = 0; i < solutions.size(); i++) {
+
+            if(solutions.get(i).getMatchScore() > largest)
+                largest = solutions.get(i).getMatchScore();
+        }
+
+        return largest;
     }
 }

@@ -30,6 +30,9 @@ public class RegexTesting {
 
 
         System.out.println();
+        System.out.println("\t".matches(".*\t*.*"));
+        System.out.println("\t ".matches(".*\t*.*"));
+        System.out.println();
         System.out.println(" {".matches("[\t ]*[{}][\t ]*|[\t ]*(\\*/)[\t ]*"));
         System.out.println(" }".matches("[\t ]*[{}][\t ]*|[\t ]*(\\*/)[\t ]*"));
         System.out.println("{".matches("[\t ]*[{}][\t ]*|[\t ]*(\\*/)[\t ]*"));
