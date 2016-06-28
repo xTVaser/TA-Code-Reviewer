@@ -3,9 +3,11 @@ import com.itextpdf.text.pdf.PdfPTable;
 import com.itextpdf.text.pdf.PdfWriter;
 import com.itextpdf.text.pdf.draw.LineSeparator;
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.beans.property.StringProperty;
 import javafx.collections.ListChangeListener;
+import javafx.concurrent.Task;
 import javafx.geometry.Insets;
 import javafx.geometry.Pos;
 import javafx.scene.Node;
@@ -48,8 +50,14 @@ public class Comparer extends Application {
     private int numFilesChecked = 0;
     private int numFilesTotal = 0;
 
+    private ArrayList<Thread> threads = new ArrayList<>();
+
     StringProperty textProperty = new SimpleStringProperty("Pending...");
 
+    /**
+     * Main method equivalent for JavaFX
+     * @param stage
+     */
     @Override
     public void start(Stage stage) {
 
@@ -93,7 +101,6 @@ public class Comparer extends Application {
 
             scrollpane.layout();
             scrollpane.setVvalue( 1.0d );
-
         });
 
         Scene scene = new Scene(layout, 1000, 500);
@@ -102,10 +109,15 @@ public class Comparer extends Application {
             stage.show();
     }
 
+    /**
+     * Main method to export data to a PDF.
+     * @param stage The primary stage that is has the GUI
+     */
     private void exportPDF(Stage stage) {
 
-        log.appendText("Begin Exporting PDF!\n");
+        //log.appendText("Begin Exporting PDF!\n");
 
+        //Make a quick dialog box to get some additional information for the PDF
         Dialog dialog = new Dialog();
         dialog.setTitle("PDF Detail Entry");
         dialog.setHeaderText("Enter the following fields and hit the 'Confirm' button");
@@ -145,7 +157,9 @@ public class Comparer extends Application {
             info.add(professorField.getText());
             info.add(taField.getText());
         }
+        //End Dialog information collection
 
+        //Create a new PDF
         Document pdf = new Document();
 
         log.appendText("Information Entered, Finding File Location...\n");
@@ -275,7 +289,13 @@ public class Comparer extends Application {
         }
     }
 
-    private void printFileContents(Document pdf, String[][] file) throws Exception {
+    /**
+     * Print the contents of the file and their color content as well.
+     * @param pdf PDF That will be exported.
+     * @param file File data that will be printed
+     * @throws DocumentException PDF Not found
+     */
+    private void printFileContents(Document pdf, String[][] file) throws DocumentException {
 
         Paragraph p = new Paragraph();
         p.setTabSettings(new TabSettings(40f));
@@ -298,6 +318,11 @@ public class Comparer extends Application {
         pdf.add(p);
     }
 
+    /**
+     * Method to figure out what color to use for printing the file.
+     * @param type The string that has the type of color matching info, black otherwise.
+     * @return Font with color information
+     */
     private Font pickFont(String type) {
 
         if(type.equals("variable"))
@@ -310,6 +335,9 @@ public class Comparer extends Application {
             return new Font(Font.FontFamily.COURIER, 10.0f, Font.NORMAL, BaseColor.BLACK);
     }
 
+    /**
+     * Iterates through all the suspects.
+     */
     private void suspectIterator() {
 
         for(int i = 0; i < suspects.size(); i++) { //For each suspect, we compare to all other suspects
@@ -317,35 +345,58 @@ public class Comparer extends Application {
             for(int j = 0; j < suspects.size(); j++) {
 
                 if(suspects.get(i) == suspects.get(j)) { //Don't compare it to itself.
-                    System.out.println(suspects.get(i)+" and "+suspects.get(j)+" Same, skipping.");
                     continue;
                 }
 
-
-                System.out.println(suspects.get(i)+" and "+suspects.get(j));
                 //Else we will compare that persons files with the other persons
                 fileIterator(suspects.get(i).getSolutions(), suspects.get(j).getSolutions());
             }
         }
 
+
+        //We have gone through all suspects, so we can enable the export button.
         exportPDFButton.setDisable(false);
     }
 
+    /**
+     * Iterates through all the files for each suspect.
+     * @param sFiles Suspects files
+     * @param mFiles Potential matches files
+     */
     private void fileIterator(ArrayList<ExaminedFile> sFiles, ArrayList<ExaminedFile> mFiles) {
 
         for(int i = 0; i < sFiles.size(); i++) {
 
-            for(int j = 0; j < mFiles.size(); j++) {
+            for (int j = 0; j < mFiles.size(); j++) {
 
-                //Compare eachfile to each other file, the lowest.
+                //Compare each file to each other file, the lowest.
                 compareAlgorithm(sFiles.get(i), mFiles.get(j));
                 numFilesChecked++;
-                pb.setProgress((double)numFilesChecked/(double)numFilesTotal);
-                textProperty.set("[ "+numFilesChecked+" out of "+numFilesTotal+"]");
+
+                Task task = new Task<Void>() {
+
+                    protected Void call() throws Exception {
+
+                        Platform.runLater(() -> {
+
+                            pb.setProgress((double) numFilesChecked / (double) numFilesTotal);
+                            textProperty.set("[ " + numFilesChecked + " out of " + numFilesTotal + "]");        //Thread
+                        });
+
+                        Thread.sleep(100);
+                        return null;
+                    }
+                };
+
+                Thread th = new Thread(task);
+                th.start();
             }
         }
     }
 
+    /**
+     * Computes how many files there are to go through.
+     */
     private void calculateTotalFiles() {
 
         int total = 0;
@@ -362,91 +413,118 @@ public class Comparer extends Application {
         numFilesTotal = total;
     }
 
+    /**
+     * Main algorithm to determine if someone has something similar or not to another file
+     * @param sFile Suspect's File
+     * @param mFile Potential Matches's File
+     */
     private void compareAlgorithm(ExaminedFile sFile, ExaminedFile mFile) {
 
-        log.appendText("Comparing-"+sFile+" to "+mFile+"\n");
+        Task task = new Task<Void>() {
+            @Override
+            protected Void call() throws Exception {
 
-        //Copy both files, and reset their color information.
-        String[][] sString = sFile.copyStoredFile();
-        String[][] mString = mFile.copyStoredFile();
+                //Copy both files, and reset their color information.
+                String[][] sString = sFile.copyStoredFile();
+                String[][] mString = mFile.copyStoredFile();
 
-        int[] matchArray = {0,0,0,0};
+                int[] matchArray = {0,0,0,0};
 
-        String line = "";
-        int beginIndex = 0;
+                String line = "";
+                int beginIndex = 0;
 
-        int counter = 0;
+                int counter = 0;
 
-        for(int i = 0; i < sString.length; i++) {
+                for(int i = 0; i < sString.length; i++) {
 
-            if (sString[i][0].equals("\n")) {
-                //Check to see if it is a waste of time, just a brace or an ending block comment.
-                if (line.matches("[\t ]*[{}][\t ]*|[\t ]*(\\*/)[\t ]*") || line.equals("") || line.matches("\\s*\t*\\s*")) {
-                    line = "";
-                    matchArray[USELESS_CHECK]++;
-                    continue;
+                    if (sString[i][0].equals("\n")) {
+                        //Check to see if it is a waste of time, just a brace or an ending block comment.
+                        if (line.matches("[\t ]*[{}][\t ]*|[\t ]*(\\*/)[\t ]*") || line.equals("") || line.matches("\\s*\t*\\s*")) {
+                            line = "";
+                            matchArray[USELESS_CHECK]++;
+                            continue;
+                        }
+
+                        //Check to see if it is a variable line.
+                        else if(line.matches(".+\\s(.+?)(;|=).")) {
+
+                            int matches = lineMatcher(line, mString, VARIABLE_CHECK);
+                            if(matches > 0)
+                                colorLine(sString, beginIndex, i, VARIABLE_CHECK);
+
+                            matchArray[VARIABLE_CHECK] += matches;
+                        }
+
+                        //Check to see if it is a comment line.
+                        else if(line.matches(".*(//|/\\*\\*|/\\*|\\*).*")) {
+
+                            int matches = lineMatcher(line, mString, COMMENT_CHECK);
+                            if(matches > 0)
+                                colorLine(sString, beginIndex, i, COMMENT_CHECK);
+
+                            matchArray[COMMENT_CHECK] += matches;
+                        }
+
+                        //Check the normal line
+                        else {
+
+                            int matches = lineMatcher(line, mString, LINE_CHECK);
+                            if(matches > 0)
+                                colorLine(sString, beginIndex, i, LINE_CHECK);
+
+                            matchArray[LINE_CHECK] += matches;
+                        }
+
+                        line = "";
+                        beginIndex = i+1;
+                    }
+                    else {
+
+                        line += sString[i][0] + " ";
+                    }
                 }
 
-                //Check to see if it is a variable line.
-                else if(line.matches(".+\\s(.+?)(;|=).")) {
+                double likelyhood = calculateScore(sFile, matchArray);
 
-                    int matches = lineMatcher(line, mString, VARIABLE_CHECK);
-                    if(matches > 0)
-                        colorLine(sString, beginIndex, i, VARIABLE_CHECK);
+                if(likelyhood > sFile.getMatchScore()) {
 
-                    matchArray[VARIABLE_CHECK] += matches;
+                    sFile.setStoredFile(sString);
+                    sFile.setMatchedFile(mString);
+                    sFile.setMatchedFileName(mFile.getFileName());
+                    sFile.setMatchScore(likelyhood);
+
+                    sFile.setNumVarMatches(matchArray[VARIABLE_CHECK]);
+                    sFile.setNumComMatches(matchArray[COMMENT_CHECK]);
+                    sFile.setNumLineMatches(matchArray[LINE_CHECK]);
+                    sFile.setNumberOfUselessLines(matchArray[USELESS_CHECK]);
+
+                    if(sFile.getMatchScore() > 50)
+                        sFile.setNumberOfMatches(sFile.getNumberOfMatches()+1);
                 }
 
-                //Check to see if it is a comment line.
-                else if(line.matches(".*(//|/\\*\\*|/\\*|\\*).*")) {
 
-                    int matches = lineMatcher(line, mString, COMMENT_CHECK);
-                    if(matches > 0)
-                        colorLine(sString, beginIndex, i, COMMENT_CHECK);
-
-                    matchArray[COMMENT_CHECK] += matches;
-                }
-
-                //Check the normal line
-                else {
-
-                    int matches = lineMatcher(line, mString, LINE_CHECK);
-                    if(matches > 0)
-                        colorLine(sString, beginIndex, i, LINE_CHECK);
-
-                    matchArray[LINE_CHECK] += matches;
-                }
-
-                line = "";
-                beginIndex = i+1;
+                return null;
             }
-            else {
+        };
 
-                line += sString[i][0] + " ";
-            }
+        Thread th = new Thread(task);
+        th.setDaemon(true);
+        th.start();
+
+        try {
+            th.join();
         }
-
-        double likelyhood = calculateScore(sFile, matchArray);
-
-        if(likelyhood > sFile.getMatchScore()) {
-
-            log.appendText("Better Match Found!\n");
-
-            sFile.setStoredFile(sString);
-            sFile.setMatchedFile(mString);
-            sFile.setMatchedFileName(mFile.getFileName());
-            sFile.setMatchScore(likelyhood);
-
-            sFile.setNumVarMatches(matchArray[VARIABLE_CHECK]);
-            sFile.setNumComMatches(matchArray[COMMENT_CHECK]);
-            sFile.setNumLineMatches(matchArray[LINE_CHECK]);
-            sFile.setNumberOfUselessLines(matchArray[USELESS_CHECK]);
-
-            if(sFile.getMatchScore() > 50)
-                sFile.setNumberOfMatches(sFile.getNumberOfMatches()+1);
+        catch (InterruptedException e ) {
+            System.out.println(e.getMessage());
         }
     }
 
+    /**
+     * Make a score based on the number of lines matched, comments are weighted more heavily
+     * @param file File to compare with
+     * @param matches Match information
+     * @return Score as double
+     */
     private double calculateScore(ExaminedFile file, int[] matches) {
 
         double numLines = (double)file.getNumberOfLines()-matches[USELESS_CHECK];
@@ -457,10 +535,16 @@ public class Comparer extends Application {
         return (matchedLines / numLines) * 100.0;
     }
 
+    /**
+     * Will color the entire line if a match is found
+     * @param file File data.
+     * @param beginIndex Beginning where it started
+     * @param endIndex Ending where it ends
+     * @param type What color it needs to be.
+     */
     private void colorLine(String[][] file, int beginIndex, int endIndex, int type) {
 
         String[] keywords = {"variable", "comment", "line"};
-        log.appendText("Found Similar "+keywords[type]+"\n");
 
         for(int i = beginIndex; i < endIndex; i++) {
 
@@ -468,11 +552,19 @@ public class Comparer extends Application {
         }
     }
 
+    //Global constants for what kind of match it is.
     final int VARIABLE_CHECK = 0;
     final int COMMENT_CHECK = 1;
     final int LINE_CHECK = 2;
     final int USELESS_CHECK = 3;
 
+    /**
+     * Checks to see if the line is the same, and returns the type of match
+     * @param line Line information
+     * @param file Complete rest of the file
+     * @param type Type of match that it is believed to be
+     * @return Return the number of matches was found.
+     */
     private int lineMatcher(String line, String[][] file, int type) {
 
         int matches = 0;
@@ -519,7 +611,6 @@ public class Comparer extends Application {
         return matches;
     }
 
-
     private void gatherSuspectsAndFiles(DirectoryChooser dirChooser, Stage stage) {
 
         log.appendText("Gathering All Files into Arrays...\n");
@@ -540,6 +631,7 @@ public class Comparer extends Application {
                 catch(IOException e) {
                     e.printStackTrace();
                 }
+                files.remove(0);
                 continue;
             }
 
@@ -548,11 +640,11 @@ public class Comparer extends Application {
 
             int indexOfSuspect = checkSuspects(currentFile.getName().split("_")[0]);
 
-
             if(indexOfSuspect == -1) {
                 suspect = new Suspect();
                 suspect.setName(currentFile.getName().split("_")[0]);
                 suspects.add(suspect);
+                log.appendText("Found Suspect: " + currentFile.getName().split("_")[0] + "\n");
             }
             else
                 suspect = suspects.get(indexOfSuspect);
@@ -563,7 +655,7 @@ public class Comparer extends Application {
                 String fullText = new String(Files.readAllBytes(Paths.get(currentFile.getAbsolutePath()))).replaceAll("[\r]","");
                 String[] allLines = fullText.split("((?<=\n)|(?=\n))|([ ])");
 
-                newFile.setFileName(currentFile.getName().split("_")[1]);
+                newFile.setFileName(currentFile.getName().substring(currentFile.getName().indexOf('_')+1));
                 newFile.setNumberOfLines(countLines(allLines));
                 newFile.setStoredFile(parseFile(allLines));
 
@@ -578,6 +670,7 @@ public class Comparer extends Application {
 
         log.appendText("Ready...\n");
         calculateTotalFiles();
+        log.appendText(numFilesTotal+" file combinations to compare!");
         beginCompare.setDisable(false);
     }
 
@@ -601,6 +694,7 @@ public class Comparer extends Application {
         }
         return count;
     }
+
     private String[][] parseFile(String[] words) {
 
         String[][] rArray = new String[words.length][2];

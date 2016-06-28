@@ -30,19 +30,19 @@ public class RegexTesting {
 
 
         System.out.println();
-        System.out.println("\t".matches(".*\t*.*"));
-        System.out.println("\t ".matches(".*\t*.*"));
+        System.out.println("\t"                 .matches(".*\t*.*"));
+        System.out.println("\t "                .matches(".*\t*.*"));
         System.out.println();
-        System.out.println(" {".matches("[\t ]*[{}][\t ]*|[\t ]*(\\*/)[\t ]*"));
-        System.out.println(" }".matches("[\t ]*[{}][\t ]*|[\t ]*(\\*/)[\t ]*"));
-        System.out.println("{".matches("[\t ]*[{}][\t ]*|[\t ]*(\\*/)[\t ]*"));
-        System.out.println("}".matches("[\t ]*[{}][\t ]*|[\t ]*(\\*/)[\t ]*"));
-        System.out.println("*/".matches("[\t ]*[{}][\t ]*|[\t ]*(\\*/)[\t ]*"));
-        System.out.println(" */".matches("[\t ]*[{}][\t ]*|[\t ]*(\\*/)[\t ]*"));
-        System.out.println("\t{".matches("[\t ]*[{}][\t ]*|[\t ]*(\\*/)[\t ]*"));
-        System.out.println("\t\t}".matches("[\t ]*[{}][\t ]*|[\t ]*(\\*/)[\t ]*"));
-        System.out.println("\t\t*/".matches("[\t ]*[{}][\t ]*|[\t ]*(\\*/)[\t ]*"));
-        System.out.println("*/\t\t".matches("[\t ]*[{}][\t ]*|[\t ]*(\\*/)[\t ]*"));
-        System.out.println("public class Division { ".matches("[\t ]*[{}][\t ]*|[\t ]*(\\*/)[\t ]*"));
+        System.out.println(" {"                 .matches("[\t ]*[{}][\t ]*|[\t ]*(\\*/)[\t ]*"));
+        System.out.println(" }"                 .matches("[\t ]*[{}][\t ]*|[\t ]*(\\*/)[\t ]*"));
+        System.out.println("{"                  .matches("[\t ]*[{}][\t ]*|[\t ]*(\\*/)[\t ]*"));
+        System.out.println("}"                  .matches("[\t ]*[{}][\t ]*|[\t ]*(\\*/)[\t ]*"));
+        System.out.println("*/"                 .matches("[\t ]*[{}][\t ]*|[\t ]*(\\*/)[\t ]*"));
+        System.out.println(" */"                .matches("[\t ]*[{}][\t ]*|[\t ]*(\\*/)[\t ]*"));
+        System.out.println("\t{"                .matches("[\t ]*[{}][\t ]*|[\t ]*(\\*/)[\t ]*"));
+        System.out.println("\t\t}"              .matches("[\t ]*[{}][\t ]*|[\t ]*(\\*/)[\t ]*"));
+        System.out.println("\t\t*/"             .matches("[\t ]*[{}][\t ]*|[\t ]*(\\*/)[\t ]*"));
+        System.out.println("*/\t\t"             .matches("[\t ]*[{}][\t ]*|[\t ]*(\\*/)[\t ]*"));
+        System.out.println("public Division { " .matches("[\t ]*[{}][\t ]*|[\t ]*(\\*/)[\t ]*"));
     }
 }
