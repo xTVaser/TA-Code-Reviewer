@@ -80,13 +80,15 @@ public class Extractor extends Application {
     public void getFileContents(FileChooser fileChooser, Stage stage) {
 
         File selectedFile = fileChooser.showOpenDialog(stage);
-        String[] path = selectedFile.getAbsolutePath().split(Pattern.quote("/"));
-
-        String newFolder = "/";
+        String[] path = selectedFile.getAbsolutePath().split(Pattern.quote("\\"));
+        
+        String newFolder = "";
         for(int i = 0; i < path.length-1; i++) {
 
             newFolder += path[i]+"/";
         }
+        
+        zipPath = newFolder;
 
         String[] assignmentInfo = path[path.length-1].split("-");
         String folderName = assignmentInfo[0] + "_" + assignmentInfo[1];
@@ -224,6 +226,31 @@ public class Extractor extends Application {
         }
 
         secondPass(folderName, secondPassDir);
+		
+		File dir = new File(zipPath+assignmentName.getText()+" Results");
+        dir.mkdir();
+        
+        //Does not work from running out of the jar file yet
+        ProcessBuilder pb = new ProcessBuilder(System.getProperty("java.home")+"/bin/java.exe", "-jar", "cmds/jplag-2.11.8.jar", "-l", "java17", "\""+folderName+"/\"", "-r", "\""+zipPath+assignmentName.getText()+" Results/\"");
+        pb.directory(new File(System.getProperty("user.dir")));
+        
+        try {
+			Process p = pb.start();
+			
+			InputStream in = p.getInputStream();
+	        InputStream err = p.getErrorStream();
+	        
+			byte b[]=new byte[in.available()];
+	        in.read(b,0,b.length);
+	        System.out.println(new String(b));
+
+	        byte c[]=new byte[err.available()];
+	        err.read(c,0,c.length);
+	        System.out.println(new String(c));
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
     }
 
     public void secondPass(String folderName, String newFolderName) {
